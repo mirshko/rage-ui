@@ -1,3 +1,7 @@
+use age::{
+    armor::{ArmoredReader, ArmoredWriter, Format},
+    x25519, Decryptor, Encryptor,
+};
 use iced::widget::{button, column, text};
 use iced::{Alignment, Element, Sandbox, Settings};
 
@@ -12,14 +16,21 @@ pub fn main() -> iced::Result {
     })
 }
 
-struct Counter {
-    value: i32,
+pub fn keygen() -> String {
+    let secret = x25519::Identity::generate();
+    let public = secret.to_public();
+
+    String::from(public.to_string())
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Default)]
+struct Counter {
+    public_key: String,
+}
+
+#[derive(Debug, Clone)]
 enum Message {
-    IncrementPressed,
-    DecrementPressed,
+    Keygen,
 }
 
 impl Sandbox for Counter {
@@ -30,7 +41,7 @@ impl Sandbox for Counter {
     }
 
     fn new() -> Self {
-        Self { value: 0 }
+        Counter::default()
     }
 
     fn title(&self) -> String {
@@ -39,23 +50,19 @@ impl Sandbox for Counter {
 
     fn update(&mut self, message: Message) {
         match message {
-            Message::IncrementPressed => {
-                self.value += 1;
-            }
-            Message::DecrementPressed => {
-                self.value -= 1;
+            Message::Keygen => {
+                self.public_key = keygen();
             }
         }
     }
 
     fn view(&self) -> Element<Message> {
         column![
-            button("Increment").on_press(Message::IncrementPressed),
-            text(self.value).size(50),
-            button("Decrement").on_press(Message::DecrementPressed)
+            text(&self.public_key).size(20),
+            button("Generate Age Key").on_press(Message::Keygen),
         ]
+        .spacing(20)
         .padding(20)
-        .align_items(Alignment::Center)
         .into()
     }
 }
