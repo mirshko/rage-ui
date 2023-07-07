@@ -2,7 +2,14 @@ use iced::widget::{button, column, text};
 use iced::{Alignment, Element, Sandbox, Settings};
 
 pub fn main() -> iced::Result {
-    Counter::run(Settings::default())
+    Counter::run(Settings {
+        window: iced::window::Settings {
+            size: (700, 550),
+            resizable: false,
+            ..Default::default()
+        },
+        ..Default::default()
+    })
 }
 
 struct Counter {
