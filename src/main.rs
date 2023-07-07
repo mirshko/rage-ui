@@ -25,6 +25,10 @@ enum Message {
 impl Sandbox for Counter {
     type Message = Message;
 
+    fn theme(&self) -> iced::Theme {
+        iced::Theme::Dark
+    }
+
     fn new() -> Self {
         Self { value: 0 }
     }
