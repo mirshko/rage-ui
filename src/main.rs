@@ -9,7 +9,11 @@ use std::{io::Write, vec};
 pub fn main() -> iced::Result {
     Counter::run(Settings {
         window: iced::window::Settings {
-            size: (700, 550),
+            platform_specific: iced::window::PlatformSpecific {
+                title_hidden: true,
+                titlebar_transparent: true,
+                fullsize_content_view: true,
+            },
             ..Default::default()
         },
         ..Default::default()
@@ -112,7 +116,7 @@ impl Sandbox for Counter {
             column![text("Encrypted Message"), text(&self.encrypted_message),].spacing(10)
         ]
         .spacing(20)
-        .padding(20)
+        .padding([40, 20])
         .into()
     }
 }
