@@ -1,36 +1,61 @@
 use age::{
-    armor::{ArmoredReader, ArmoredWriter, Format},
-    x25519, Decryptor, Encryptor,
+    armor::{ArmoredWriter, Format},
+    x25519, Encryptor, Recipient,
 };
-use iced::widget::{button, column, text};
-use iced::{Alignment, Element, Sandbox, Settings};
+use iced::widget::{button, column, row, text, text_input};
+use iced::{Element, Sandbox, Settings};
+use std::{io::Write, vec};
 
 pub fn main() -> iced::Result {
     Counter::run(Settings {
         window: iced::window::Settings {
             size: (700, 550),
-            resizable: false,
             ..Default::default()
         },
         ..Default::default()
     })
 }
 
-pub fn keygen() -> String {
-    let secret = x25519::Identity::generate();
-    let public = secret.to_public();
+fn encrypt_error<T>(_: T) -> String {
+    String::from("")
+}
 
-    String::from(public.to_string())
+pub fn encrypt_with_x25519(public_key: &str, data: &[u8]) -> Result<Box<[u8]>, String> {
+    let key: x25519::Recipient = public_key.parse().map_err(encrypt_error)?;
+
+    let recipients = vec![Box::new(key) as Box<dyn Recipient + Send>];
+
+    let encryptor = Encryptor::with_recipients(recipients).ok_or_else(|| encrypt_error(""))?;
+
+    let mut output = vec![];
+
+    let armor =
+        ArmoredWriter::wrap_output(&mut output, Format::AsciiArmor).map_err(encrypt_error)?;
+
+    let mut writer = encryptor.wrap_output(armor).map_err(encrypt_error)?;
+
+    writer.write_all(data).map_err(encrypt_error)?;
+
+    writer
+        .finish()
+        .and_then(|armor| armor.finish())
+        .map_err(encrypt_error)?;
+
+    Ok(output.into_boxed_slice())
 }
 
 #[derive(Default)]
 struct Counter {
     public_key: String,
+    message: String,
+    encrypted_message: String,
 }
 
 #[derive(Debug, Clone)]
 enum Message {
-    Keygen,
+    Encrypt,
+    PublicKeyChanged(String),
+    MessageChanged(String),
 }
 
 impl Sandbox for Counter {
@@ -45,21 +70,46 @@ impl Sandbox for Counter {
     }
 
     fn title(&self) -> String {
-        String::from("rage-ui")
+        String::from("rage UI")
     }
 
     fn update(&mut self, message: Message) {
         match message {
-            Message::Keygen => {
-                self.public_key = keygen();
+            Message::Encrypt => {
+                let encrypted = encrypt_with_x25519(&self.public_key, self.message.as_bytes());
+                match encrypted {
+                    Ok(data) => {
+                        self.encrypted_message = String::from_utf8(data.to_vec()).unwrap();
+                    }
+                    Err(_) => {
+                        self.encrypted_message = String::from("Error encrypting message");
+                    }
+                }
+            }
+            Message::PublicKeyChanged(data) => {
+                self.public_key = data;
+            }
+            Message::MessageChanged(data) => {
+                self.message = data;
             }
         }
     }
 
     fn view(&self) -> Element<Message> {
+        let input = text_input("Paste your age Public Key", &self.public_key)
+            .on_input(Message::PublicKeyChanged);
+
+        let message_input =
+            text_input("Message to encrypt", &self.message).on_input(Message::MessageChanged);
+
         column![
-            text(&self.public_key).size(20),
-            button("Generate Age Key").on_press(Message::Keygen),
+            column![text("Public Key"), input].spacing(10),
+            column![
+                text("Message"),
+                row![message_input, button("Encrypt").on_press(Message::Encrypt)].spacing(10)
+            ]
+            .spacing(10),
+            column![text("Encrypted Message"), text(&self.encrypted_message),].spacing(10)
         ]
         .spacing(20)
         .padding(20)
